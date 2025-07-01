@@ -54,7 +54,12 @@
   <h3>Result:</h3>
   <pre id="resultBox">No result yet.</pre>
 
+  <canvas id="riskChart" style="margin-top: 20px;"></canvas>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script>
+    let chart = null;
+
     async function analyze() {
       const input = document.getElementById('portInput').value;
       const ports = input.split(',').map(p => p.trim()).filter(p => p !== "");
@@ -75,8 +80,41 @@
 
         const data = await res.json();
 
-        document.getElementById('resultBox').textContent =
-          data.result || "Error: " + JSON.stringify(data);
+        if (data.high || data.medium || data.low) {
+          let output = "";
+          if (data.high) output += `🔴 HIGH: ${data.high.join(", ")}\n\n`;
+          if (data.medium) output += `🟠 MEDIUM: ${data.medium.join(", ")}\n\n`;
+          if (data.low) output += `🟢 LOW: ${data.low.join(", ")}\n\n`;
+          document.getElementById('resultBox').textContent = output;
+
+          // Show chart
+          const ctx = document.getElementById('riskChart').getContext('2d');
+          if (chart) chart.destroy();
+          chart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+              labels: ['Low', 'Medium', 'High'],
+              datasets: [{
+                label: '# of Ports',
+                data: [
+                  data.low?.length || 0,
+                  data.medium?.length || 0,
+                  data.high?.length || 0
+                ],
+                backgroundColor: ['green', 'orange', 'red']
+              }]
+            },
+            options: {
+              responsive: true,
+              plugins: {
+                legend: { display: false }
+              }
+            }
+          });
+        } else {
+          document.getElementById('resultBox').textContent = "Unexpected response:\n" + JSON.stringify(data);
+        }
+
       } catch (err) {
         document.getElementById('resultBox').textContent = "Request failed: " + err.message;
       }
