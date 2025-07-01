@@ -13,11 +13,8 @@
       color: #333;
     }
 
-    h2 {
-      text-align: center;
-    }
-
-    textarea, input[type="text"], input[type="file"], button {
+    h2 { text-align: center; }
+    input, textarea, button {
       width: 100%;
       padding: 12px;
       margin: 10px 0;
@@ -39,7 +36,7 @@
       background: #eee;
       padding: 10px;
       white-space: pre-wrap;
-      margin-top: 15px;
+      margin-top: 10px;
     }
 
     .warning {
@@ -48,6 +45,15 @@
       padding: 10px;
       display: none;
       margin-top: 10px;
+    }
+
+    .export-btns {
+      display: flex;
+      gap: 10px;
+    }
+
+    .export-btns button {
+      flex: 1;
     }
   </style>
 </head>
@@ -62,10 +68,15 @@
   <button onclick="analyze()">Analyze</button>
 
   <div id="warningBox" class="warning"></div>
+
   <h3>Result:</h3>
   <pre id="resultBox">No result yet.</pre>
-
   <canvas id="riskChart" style="margin-top: 20px;"></canvas>
+
+  <div class="export-btns">
+    <button onclick="exportReport('json')">📤 Export JSON</button>
+    <button onclick="exportReport('pdf')">🧾 Export PDF</button>
+  </div>
 
   <hr>
 
@@ -76,8 +87,9 @@
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script>
-    let chart = null;
     const backendURL = 'https://75234246-3ddf-41ed-af63-45c7b3d19a3d-00-1d7tnmydb8zlx.sisko.replit.dev';
+    let lastResult = null;
+    let chart = null;
 
     async function analyze() {
       const ip = document.getElementById('ipInput').value.trim();
@@ -100,6 +112,7 @@
         });
 
         const data = await res.json();
+        lastResult = data;
 
         if (data.suspicious) {
           document.getElementById('warningBox').style.display = "block";
@@ -171,6 +184,37 @@
 
       } catch (err) {
         document.getElementById('uploadResultBox').textContent = "❌ Upload failed: " + err.message;
+      }
+    }
+
+    async function exportReport(type) {
+      if (!lastResult || !lastResult.classification) {
+        alert("⚠ Please run an analysis first.");
+        return;
+      }
+
+      const endpoint = type === 'pdf' ? '/export/pdf' : '/export/json';
+
+      try {
+        const res = await fetch(`${backendURL}${endpoint}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ip: lastResult.ip || "unknown",
+            classification: lastResult.classification
+          })
+        });
+
+        const blob = await res.blob();
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = type === 'pdf' ? "cyscan_report.pdf" : "cyscan_report.json";
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+      } catch (err) {
+        alert("❌ Failed to export: " + err.message);
       }
     }
   </script>
