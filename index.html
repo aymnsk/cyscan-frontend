@@ -1,15 +1,52 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>CyScan Port Analyzer</title>
+  <meta charset="UTF-8">
+  <title>CyScan - Port Risk Analyzer</title>
   <style>
-    body { font-family: Arial; max-width: 600px; margin: 50px auto; }
-    textarea, button { width: 100%; padding: 10px; margin-top: 10px; }
-    pre { background: #f2f2f2; padding: 10px; white-space: pre-wrap; }
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 600px;
+      margin: 40px auto;
+      padding: 0 20px;
+      background: #f9f9f9;
+    }
+
+    h2 {
+      color: #222;
+      text-align: center;
+    }
+
+    textarea, button {
+      width: 100%;
+      padding: 12px;
+      margin-top: 10px;
+      font-size: 16px;
+    }
+
+    button {
+      background: #007BFF;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #0056b3;
+    }
+
+    pre {
+      background: #fff;
+      border: 1px solid #ddd;
+      padding: 15px;
+      white-space: pre-wrap;
+      margin-top: 15px;
+    }
   </style>
 </head>
 <body>
   <h2>🔐 CyScan - Port Risk Analyzer</h2>
+
   <p>Enter open ports (comma-separated):</p>
   <textarea id="portInput" placeholder="e.g. 22, 80, 443"></textarea>
   <button onclick="analyze()">Analyze</button>
@@ -20,16 +57,29 @@
   <script>
     async function analyze() {
       const input = document.getElementById('portInput').value;
-      const ports = input.split(',').map(p => p.trim());
+      const ports = input.split(',').map(p => p.trim()).filter(p => p !== "");
 
-      const res = await fetch('https://75234246-3ddf-41ed-af63-45c7b3d19a3d-00-1d7tnmydb8zlx.sisko.replit.dev/analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ports })
-      });
+      if (ports.length === 0) {
+        document.getElementById('resultBox').textContent = "Please enter at least one port number.";
+        return;
+      }
 
-      const data = await res.json();
-      document.getElementById('resultBox').textContent = data.result || "Error: " + JSON.stringify(data);
+      document.getElementById('resultBox').textContent = "Analyzing...";
+
+      try {
+        const res = await fetch('https://75234246-3ddf-41ed-af63-45c7b3d19a3d-00-1d7tnmydb8zlx.sisko.replit.dev/analyze', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ports })
+        });
+
+        const data = await res.json();
+
+        document.getElementById('resultBox').textContent =
+          data.result || "Error: " + JSON.stringify(data);
+      } catch (err) {
+        document.getElementById('resultBox').textContent = "Request failed: " + err.message;
+      }
     }
   </script>
 </body>
