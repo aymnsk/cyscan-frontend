@@ -6,21 +6,21 @@
   <style>
     body {
       font-family: Arial, sans-serif;
-      max-width: 600px;
+      max-width: 700px;
       margin: 40px auto;
-      padding: 0 20px;
-      background: #f9f9f9;
+      background: #f5f7fa;
+      padding: 20px;
+      color: #333;
     }
 
     h2 {
-      color: #222;
       text-align: center;
     }
 
-    input, textarea, button {
+    textarea, input[type="text"], input[type="file"], button {
       width: 100%;
       padding: 12px;
-      margin-top: 10px;
+      margin: 10px 0;
       font-size: 16px;
     }
 
@@ -36,42 +36,48 @@
     }
 
     pre {
-      background: #fff;
-      border: 1px solid #ddd;
-      padding: 15px;
+      background: #eee;
+      padding: 10px;
       white-space: pre-wrap;
       margin-top: 15px;
     }
 
     .warning {
       background: #ffe5e5;
-      color: #b30000;
+      border-left: 5px solid red;
       padding: 10px;
+      display: none;
       margin-top: 10px;
-      border-left: 4px solid #ff1a1a;
     }
   </style>
 </head>
 <body>
   <h2>🔐 CyScan - Port Risk Analyzer</h2>
 
-  <p>Enter your IP address:</p>
+  <label>Enter your IP address:</label>
   <input type="text" id="ipInput" placeholder="e.g. 192.168.1.10" />
 
-  <p>Enter open ports (comma-separated):</p>
+  <label>Enter open ports (comma-separated):</label>
   <textarea id="portInput" placeholder="e.g. 22, 80, 443"></textarea>
   <button onclick="analyze()">Analyze</button>
 
-  <div id="warningBox" class="warning" style="display:none;"></div>
-
+  <div id="warningBox" class="warning"></div>
   <h3>Result:</h3>
   <pre id="resultBox">No result yet.</pre>
 
   <canvas id="riskChart" style="margin-top: 20px;"></canvas>
 
+  <hr>
+
+  <h3>Upload Nmap File (.txt or .xml):</h3>
+  <input type="file" id="nmapFile" />
+  <button onclick="uploadFile()">Upload & Analyze</button>
+  <pre id="uploadResultBox">No upload result yet.</pre>
+
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script>
     let chart = null;
+    const backendURL = 'https://75234246-3ddf-41ed-af63-45c7b3d19a3d-00-1d7tnmydb8zlx.sisko.replit.dev';
 
     async function analyze() {
       const ip = document.getElementById('ipInput').value.trim();
@@ -79,15 +85,15 @@
       const ports = input.split(',').map(p => p.trim()).filter(p => p !== "");
 
       if (!ip || ports.length === 0) {
-        document.getElementById('resultBox').textContent = "Please enter both IP and port numbers.";
+        document.getElementById('resultBox').textContent = "❗ Please enter both IP and port numbers.";
         return;
       }
 
-      document.getElementById('resultBox').textContent = "Analyzing...";
+      document.getElementById('resultBox').textContent = "⏳ Analyzing...";
       document.getElementById('warningBox').style.display = "none";
 
       try {
-        const res = await fetch('https://75234246-3ddf-41ed-af63-45c7b3d19a3d-00-1d7tnmydb8zlx.sisko.replit.dev/analyze', {
+        const res = await fetch(`${backendURL}/analyze`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ ports, ip })
@@ -101,43 +107,70 @@
         }
 
         const classification = data.classification;
-        if (classification.high || classification.medium || classification.low) {
-          let output = "";
-          if (classification.high) output += `🔴 HIGH: ${classification.high.join(", ")}\n\n`;
-          if (classification.medium) output += `🟠 MEDIUM: ${classification.medium.join(", ")}\n\n`;
-          if (classification.low) output += `🟢 LOW: ${classification.low.join(", ")}\n\n`;
-          document.getElementById('resultBox').textContent = output;
+        let output = "";
 
-          // Update Chart
-          const ctx = document.getElementById('riskChart').getContext('2d');
-          if (chart) chart.destroy();
-          chart = new Chart(ctx, {
-            type: 'bar',
-            data: {
-              labels: ['Low', 'Medium', 'High'],
-              datasets: [{
-                label: '# of Ports',
-                data: [
-                  classification.low?.length || 0,
-                  classification.medium?.length || 0,
-                  classification.high?.length || 0
-                ],
-                backgroundColor: ['green', 'orange', 'red']
-              }]
-            },
-            options: {
-              responsive: true,
-              plugins: {
-                legend: { display: false }
-              }
-            }
-          });
+        if (classification.high) output += `🔴 HIGH: ${classification.high.join(", ")}\n\n`;
+        if (classification.medium) output += `🟠 MEDIUM: ${classification.medium.join(", ")}\n\n`;
+        if (classification.low) output += `🟢 LOW: ${classification.low.join(", ")}\n\n`;
+
+        document.getElementById('resultBox').textContent = output;
+
+        if (chart) chart.destroy();
+        const ctx = document.getElementById('riskChart').getContext('2d');
+        chart = new Chart(ctx, {
+          type: 'bar',
+          data: {
+            labels: ['Low', 'Medium', 'High'],
+            datasets: [{
+              label: '# of Ports',
+              data: [
+                classification.low?.length || 0,
+                classification.medium?.length || 0,
+                classification.high?.length || 0
+              ],
+              backgroundColor: ['green', 'orange', 'red']
+            }]
+          },
+          options: {
+            responsive: true,
+            plugins: { legend: { display: false } }
+          }
+        });
+
+      } catch (err) {
+        document.getElementById('resultBox').textContent = "❌ Request failed: " + err.message;
+      }
+    }
+
+    async function uploadFile() {
+      const fileInput = document.getElementById('nmapFile');
+      const file = fileInput.files[0];
+      if (!file) return alert("Please select a file.");
+
+      const formData = new FormData();
+      formData.append('file', file);
+
+      document.getElementById('uploadResultBox').textContent = "⏳ Uploading & analyzing...";
+
+      try {
+        const res = await fetch(`${backendURL}/upload`, {
+          method: 'POST',
+          body: formData
+        });
+
+        const data = await res.json();
+        if (data.classification) {
+          let output = `✅ Ports Found: ${data.ports.join(", ")}\n\n`;
+          if (data.classification.high) output += `🔴 HIGH: ${data.classification.high.join(", ")}\n\n`;
+          if (data.classification.medium) output += `🟠 MEDIUM: ${data.classification.medium.join(", ")}\n\n`;
+          if (data.classification.low) output += `🟢 LOW: ${data.classification.low.join(", ")}\n\n`;
+          document.getElementById('uploadResultBox').textContent = output;
         } else {
-          document.getElementById('resultBox').textContent = "Unexpected response:\n" + JSON.stringify(data);
+          document.getElementById('uploadResultBox').textContent = "❌ Error: " + JSON.stringify(data);
         }
 
       } catch (err) {
-        document.getElementById('resultBox').textContent = "Request failed: " + err.message;
+        document.getElementById('uploadResultBox').textContent = "❌ Upload failed: " + err.message;
       }
     }
   </script>
