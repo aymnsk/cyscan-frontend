@@ -22,7 +22,7 @@
       const input = document.getElementById('portInput').value;
       const ports = input.split(',').map(p => p.trim());
 
-      const res = await fetch('https://fc3b2553-15f7-40aa-b330-53171d3282d5-00-3han7cewbb9ru.pike.replit.dev/', {
+      const res = await fetch('https://fc3b2553-15f7-40aa-b330-53171d3282d5-00-3han7cewbb9ru.pike.replit.dev/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ports })
