@@ -1,111 +1,153 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>CyScan - Port Risk Analyzer</title>
+  <meta charset="UTF-8">
+  <title>CyScan 🔐</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     body {
-      font-family: Arial, sans-serif;
-      max-width: 700px;
-      margin: 30px auto;
-      padding: 20px;
-      background: #f9f9f9;
+      font-family: 'Segoe UI', sans-serif;
+      background: #0f1117;
+      color: #fff;
+      text-align: center;
+      padding: 30px;
     }
-    h2 { text-align: center; }
-    textarea, input, button {
-      width: 100%;
+    input, button {
       padding: 10px;
-      margin-top: 10px;
-      font-size: 16px;
-    }
-    pre {
-      background: #eee;
-      padding: 10px;
-      margin-top: 15px;
-      white-space: pre-wrap;
+      margin: 10px;
+      border: none;
       border-radius: 5px;
     }
-    .btn-row {
-      display: flex;
-      gap: 10px;
-      margin-top: 10px;
+    input {
+      width: 300px;
     }
-    .btn-row button {
-      flex: 1;
+    button {
+      background: #1f8ef1;
+      color: white;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #0f7ae5;
+    }
+    #result {
+      margin-top: 20px;
+      white-space: pre-wrap;
+      background: #1e1e2f;
+      padding: 15px;
+      border-radius: 10px;
+      max-width: 600px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    canvas {
+      margin-top: 20px;
     }
   </style>
 </head>
 <body>
-  <h2>🔐 CyScan - Port Risk Analyzer</h2>
+  <h1>🛡️ CyScan - Cybersecurity Port Analyzer</h1>
 
-  <p>Enter open ports (comma-separated):</p>
-  <textarea id="portInput" placeholder="e.g. 22, 80, 443, 3306, 3389"></textarea>
-  <button onclick="analyze()">Analyze Ports</button>
+  <input type="text" id="ports" placeholder="Enter ports e.g. 22,80,443"><br>
+  <button onclick="analyzePorts()">Analyze Ports</button><br>
 
-  <p>Or upload Nmap `.txt`/`.xml` output:</p>
-  <input type="file" id="nmapFile" />
-  <button onclick="uploadFile()">Upload & Analyze</button>
+  <input type="file" id="fileInput">
+  <button onclick="uploadFile()">Upload Nmap File</button><br>
 
-  <div class="btn-row">
-    <button onclick="exportReport('json')">⬇️ Export JSON</button>
-    <button onclick="exportReport('pdf')">⬇️ Export PDF</button>
-  </div>
+  <button onclick="downloadJSON()">⬇️ Export as JSON</button>
+  <button onclick="downloadPDF()">⬇️ Export as PDF</button>
 
-  <h3>Result:</h3>
-  <pre id="resultBox">No result yet.</pre>
+  <div id="result">Awaiting scan result...</div>
+  <canvas id="chart" width="400" height="400"></canvas>
 
   <script>
     let lastResult = null;
 
-    async function analyze() {
-      const input = document.getElementById('portInput').value;
-      const ports = input.split(',').map(p => p.trim()).filter(p => p);
-
+    async function analyzePorts() {
+      const ports = document.getElementById('ports').value.split(',').map(p => p.trim());
       const res = await fetch('/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ports })
       });
-
       const data = await res.json();
       lastResult = data;
-      document.getElementById('resultBox').textContent = data.result || "Something went wrong.";
+      document.getElementById('result').textContent = data.result;
+      drawChart(data.classification);
     }
 
     async function uploadFile() {
-      const fileInput = document.getElementById('nmapFile');
-      const file = fileInput.files[0];
-      if (!file) return alert("Please select a file");
-
+      const fileInput = document.getElementById('fileInput');
       const formData = new FormData();
-      formData.append('file', file);
+      formData.append('file', fileInput.files[0]);
 
       const res = await fetch('/upload', {
         method: 'POST',
         body: formData
       });
-
       const data = await res.json();
       lastResult = data;
-      document.getElementById('resultBox').textContent = data.result || "Error in file analysis.";
+      document.getElementById('result').textContent = data.result;
+      drawChart(data.classification);
     }
 
-    async function exportReport(format) {
-      if (!lastResult) return alert("Run analysis first!");
-
-      const res = await fetch(`/export/${format}`, {
+    async function downloadJSON() {
+      if (!lastResult) return alert("Run analysis first.");
+      const res = await fetch('/export/json', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(lastResult)
       });
-
       const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
+      const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `cyscan_report.${format}`;
+      a.download = 'cyscan_report.json';
       document.body.appendChild(a);
       a.click();
-      document.body.removeChild(a);
+      a.remove();
+    }
+
+    async function downloadPDF() {
+      if (!lastResult) return alert("Run analysis first.");
+      const res = await fetch('/export/pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(lastResult)
+      });
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'cyscan_report.pdf';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    }
+
+    function drawChart(classification) {
+      const ctx = document.getElementById('chart').getContext('2d');
+      const data = {
+        labels: ['High', 'Medium', 'Low'],
+        datasets: [{
+          label: 'Port Risk Classification',
+          data: [
+            (classification.high || []).length,
+            (classification.medium || []).length,
+            (classification.low || []).length
+          ],
+          backgroundColor: ['#ff3b3b', '#ffb347', '#7fffd4']
+        }]
+      };
+
+      if (window.riskChart) {
+        window.riskChart.data = data;
+        window.riskChart.update();
+      } else {
+        window.riskChart = new Chart(ctx, {
+          type: 'pie',
+          data: data
+        });
+      }
     }
   </script>
 </body>
