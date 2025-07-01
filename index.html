@@ -1,146 +1,150 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>CyScan - Port Risk Analyzer</title>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>CyScan — Port Risk Analyzer</title>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono&display=swap" rel="stylesheet">
   <style>
+    * {
+      box-sizing: border-box;
+    }
+
     body {
+      margin: 0;
       font-family: 'JetBrains Mono', monospace;
       background-color: #0d1117;
       color: #c9d1d9;
-      margin: 0;
+      display: flex;
+      justify-content: center;
       padding: 20px;
     }
-    h1 {
-      color: #58a6ff;
-      text-align: center;
-    }
+
     .container {
-      max-width: 800px;
-      margin: 0 auto;
-      background-color: #161b22;
-      padding: 20px;
-      border-radius: 10px;
-      box-shadow: 0 0 15px rgba(88, 166, 255, 0.2);
-    }
-    label {
-      display: block;
-      margin-top: 15px;
-      font-weight: bold;
-    }
-    input, button, textarea {
+      max-width: 600px;
       width: 100%;
-      padding: 10px;
-      margin-top: 5px;
-      margin-bottom: 15px;
-      background-color: #0d1117;
-      color: #c9d1d9;
-      border: 1px solid #30363d;
-      border-radius: 5px;
+      background: #161b22;
+      padding: 25px;
+      border-radius: 12px;
+      box-shadow: 0 0 20px rgba(88, 166, 255, 0.2);
     }
+
+    h1 {
+      text-align: center;
+      color: #58a6ff;
+      margin-bottom: 20px;
+    }
+
+    label {
+      font-weight: bold;
+      display: block;
+      margin-bottom: 8px;
+    }
+
+    input, button {
+      width: 100%;
+      padding: 12px;
+      font-size: 14px;
+      margin-bottom: 15px;
+      border-radius: 8px;
+      border: 1px solid #30363d;
+      background: #0d1117;
+      color: #c9d1d9;
+    }
+
     button {
       background-color: #238636;
-      cursor: pointer;
       border: none;
+      cursor: pointer;
+      transition: background 0.3s;
     }
+
     button:hover {
       background-color: #2ea043;
     }
-    .result-box {
-      white-space: pre-wrap;
-      background-color: #161b22;
-      border-left: 5px solid #58a6ff;
-      padding: 10px;
-      border-radius: 5px;
-      margin-top: 15px;
+
+    .results {
+      margin-top: 20px;
+    }
+
+    .risk-box {
+      padding: 10px 15px;
+      border-radius: 6px;
+      margin-top: 10px;
+    }
+
+    .high { background: #ff4d4d20; border-left: 4px solid #ff4d4d; }
+    .medium { background: #ffa50020; border-left: 4px solid #ffa500; }
+    .low { background: #00ff7f20; border-left: 4px solid #00ff7f; }
+
+    .loading {
+      text-align: center;
+      font-size: 14px;
+      color: #888;
     }
   </style>
 </head>
 <body>
-  <h1>🔐 CyScan</h1>
   <div class="container">
+    <h1>🔐 CyScan</h1>
+    
     <label for="ports">Enter Ports (comma-separated)</label>
-    <input type="text" id="ports" placeholder="22,80,443,3306,3389">
-    <button onclick="analyzePorts()">Analyze Ports</button>
+    <input id="ports" type="text" placeholder="e.g., 22,80,443,3306,3389" />
 
-    <label for="fileUpload">or Upload Nmap File</label>
-    <input type="file" id="fileUpload">
-    <button onclick="uploadFile()">Upload & Analyze</button>
+    <button onclick="analyze()">Analyze Ports</button>
 
-    <div id="results" class="result-box">Result will appear here...</div>
+    <div class="loading" id="loading" style="display:none;">⏳ Analyzing...</div>
 
-    <button onclick="exportJSON()">📄 Export JSON</button>
-    <button onclick="exportPDF()">🧾 Export PDF</button>
+    <div class="results" id="results" style="display:none;">
+      <div><strong>IP:</strong> <span id="ip"></span></div>
+      <div><strong>Timestamp:</strong> <span id="timestamp"></span></div>
+
+      <div class="risk-box high" id="highBox">
+        <strong>🔴 High Risk:</strong> <span id="high"></span>
+      </div>
+
+      <div class="risk-box medium" id="mediumBox">
+        <strong>🟠 Medium Risk:</strong> <span id="medium"></span>
+      </div>
+
+      <div class="risk-box low" id="lowBox">
+        <strong>🟢 Low Risk:</strong> <span id="low"></span>
+      </div>
+    </div>
   </div>
 
   <script>
-    const BASE_URL = "https://75234246-3ddf-41ed-af63-45c7b3d19a3d-00-1d7tnmydb8zlx.sisko.replit.dev";
-    let currentData = null;
+    async function analyze() {
+      const portsInput = document.getElementById("ports").value;
+      const ports = portsInput.split(',').map(p => p.trim()).filter(Boolean);
 
-    async function analyzePorts() {
-      const input = document.getElementById("ports").value;
-      const ports = input.split(',').map(p => p.trim()).filter(p => p);
       if (!ports.length) return alert("Please enter at least one port.");
 
-      const res = await fetch(`${BASE_URL}/analyze`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ports })
-      });
+      document.getElementById("loading").style.display = "block";
+      document.getElementById("results").style.display = "none";
 
-      currentData = await res.json();
-      document.getElementById("results").innerText = currentData.result;
-    }
+      try {
+        const res = await fetch("https://75234246-3ddf-41ed-af63-45c7b3d19a3d-00-1d7tnmydb8zlx.sisko.replit.dev/analyze", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ports })
+        });
 
-    async function uploadFile() {
-      const file = document.getElementById("fileUpload").files[0];
-      if (!file) return alert("Please select a file.");
+        const data = await res.json();
+        document.getElementById("loading").style.display = "none";
 
-      const formData = new FormData();
-      formData.append("file", file);
+        document.getElementById("ip").innerText = data.ip;
+        document.getElementById("timestamp").innerText = new Date(data.timestamp).toLocaleString();
+        document.getElementById("high").innerText = (data.classification.high || []).join(', ') || "None";
+        document.getElementById("medium").innerText = (data.classification.medium || []).join(', ') || "None";
+        document.getElementById("low").innerText = (data.classification.low || []).join(', ') || "None";
 
-      const res = await fetch(`${BASE_URL}/upload`, {
-        method: "POST",
-        body: formData
-      });
-
-      currentData = await res.json();
-      document.getElementById("results").innerText = currentData.result;
-    }
-
-    async function exportJSON() {
-      if (!currentData) return alert("Run an analysis first.");
-      const res = await fetch(`${BASE_URL}/export/json`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(currentData)
-      });
-      const blob = await res.blob();
-      downloadFile(blob, "cyscan_report.json");
-    }
-
-    async function exportPDF() {
-      if (!currentData) return alert("Run an analysis first.");
-      const res = await fetch(`${BASE_URL}/export/pdf`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(currentData)
-      });
-      const blob = await res.blob();
-      downloadFile(blob, "cyscan_report.pdf");
-    }
-
-    function downloadFile(blob, filename) {
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
+        document.getElementById("results").style.display = "block";
+      } catch (err) {
+        document.getElementById("loading").style.display = "none";
+        alert("Error analyzing ports.");
+        console.error(err);
+      }
     }
   </script>
 </body>
