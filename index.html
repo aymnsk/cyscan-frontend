@@ -1,62 +1,54 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>CyScan — Port Risk Analyzer</title>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono&display=swap" rel="stylesheet">
+  <title>CyScan - Port Risk Analyzer</title>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
   <style>
-    * {
-      box-sizing: border-box;
-    }
-
     body {
-      margin: 0;
       font-family: 'JetBrains Mono', monospace;
       background-color: #0d1117;
       color: #c9d1d9;
-      display: flex;
-      justify-content: center;
+      margin: 0;
       padding: 20px;
     }
 
     .container {
-      max-width: 600px;
-      width: 100%;
-      background: #161b22;
-      padding: 25px;
-      border-radius: 12px;
-      box-shadow: 0 0 20px rgba(88, 166, 255, 0.2);
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+      background-color: #161b22;
+      border-radius: 10px;
+      box-shadow: 0 0 15px rgba(88, 166, 255, 0.1);
     }
 
     h1 {
-      text-align: center;
       color: #58a6ff;
-      margin-bottom: 20px;
+      text-align: center;
+      margin-bottom: 10px;
     }
 
     label {
-      font-weight: bold;
       display: block;
-      margin-bottom: 8px;
+      margin-top: 20px;
+      margin-bottom: 5px;
     }
 
     input, button {
       width: 100%;
-      padding: 12px;
-      font-size: 14px;
+      padding: 10px;
       margin-bottom: 15px;
-      border-radius: 8px;
+      border-radius: 5px;
       border: 1px solid #30363d;
-      background: #0d1117;
+      background-color: #0d1117;
       color: #c9d1d9;
     }
 
     button {
       background-color: #238636;
-      border: none;
       cursor: pointer;
-      transition: background 0.3s;
     }
 
     button:hover {
@@ -65,86 +57,109 @@
 
     .results {
       margin-top: 20px;
+      background-color: #0d1117;
+      padding: 15px;
+      border-left: 5px solid #58a6ff;
+      border-radius: 5px;
+      white-space: pre-wrap;
     }
 
-    .risk-box {
-      padding: 10px 15px;
-      border-radius: 6px;
-      margin-top: 10px;
+    .export-buttons {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
     }
 
-    .high { background: #ff4d4d20; border-left: 4px solid #ff4d4d; }
-    .medium { background: #ffa50020; border-left: 4px solid #ffa500; }
-    .low { background: #00ff7f20; border-left: 4px solid #00ff7f; }
-
-    .loading {
-      text-align: center;
-      font-size: 14px;
-      color: #888;
+    .export-buttons button {
+      flex: 1;
     }
   </style>
 </head>
+
 <body>
   <div class="container">
-    <h1>🔐 CyScan</h1>
-    
-    <label for="ports">Enter Ports (comma-separated)</label>
-    <input id="ports" type="text" placeholder="e.g., 22,80,443,3306,3389" />
+    <h1>🔐 CyScan - Port Risk Analyzer</h1>
 
-    <button onclick="analyze()">Analyze Ports</button>
+    <label for="ports">Enter Ports (comma-separated):</label>
+    <input type="text" id="ports" placeholder="22,80,443,3306,3389" />
 
-    <div class="loading" id="loading" style="display:none;">⏳ Analyzing...</div>
+    <button onclick="analyzePorts()">🚀 Analyze</button>
 
-    <div class="results" id="results" style="display:none;">
-      <div><strong>IP:</strong> <span id="ip"></span></div>
-      <div><strong>Timestamp:</strong> <span id="timestamp"></span></div>
+    <div id="results" class="results"></div>
 
-      <div class="risk-box high" id="highBox">
-        <strong>🔴 High Risk:</strong> <span id="high"></span>
-      </div>
-
-      <div class="risk-box medium" id="mediumBox">
-        <strong>🟠 Medium Risk:</strong> <span id="medium"></span>
-      </div>
-
-      <div class="risk-box low" id="lowBox">
-        <strong>🟢 Low Risk:</strong> <span id="low"></span>
-      </div>
+    <div class="export-buttons">
+      <button onclick="exportJSON()">📄 Export JSON</button>
+      <button onclick="exportPDF()">🧾 Export PDF</button>
     </div>
   </div>
 
   <script>
-    async function analyze() {
-      const portsInput = document.getElementById("ports").value;
-      const ports = portsInput.split(',').map(p => p.trim()).filter(Boolean);
+    let currentData = null;
 
-      if (!ports.length) return alert("Please enter at least one port.");
+    async function analyzePorts() {
+      const portInput = document.getElementById("ports").value;
+      const ports = portInput.split(',').map(p => p.trim()).filter(Boolean);
 
-      document.getElementById("loading").style.display = "block";
-      document.getElementById("results").style.display = "none";
+      const res = await fetch('/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ports })
+      });
 
-      try {
-        const res = await fetch("https://75234246-3ddf-41ed-af63-45c7b3d19a3d-00-1d7tnmydb8zlx.sisko.replit.dev/analyze", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ports })
-        });
+      const data = await res.json();
+      currentData = data;
 
-        const data = await res.json();
-        document.getElementById("loading").style.display = "none";
+      let resultHTML = `IP: ${data.ip}\nLocation: ${data.location || 'Unknown'}\nTimestamp: ${new Date(data.timestamp).toLocaleString()}\n\n`;
 
-        document.getElementById("ip").innerText = data.ip;
-        document.getElementById("timestamp").innerText = new Date(data.timestamp).toLocaleString();
-        document.getElementById("high").innerText = (data.classification.high || []).join(', ') || "None";
-        document.getElementById("medium").innerText = (data.classification.medium || []).join(', ') || "None";
-        document.getElementById("low").innerText = (data.classification.low || []).join(', ') || "None";
-
-        document.getElementById("results").style.display = "block";
-      } catch (err) {
-        document.getElementById("loading").style.display = "none";
-        alert("Error analyzing ports.");
-        console.error(err);
+      resultHTML += `🔴 High Risk:\n`;
+      for (const [port, reason] of Object.entries(data.classification?.high || {})) {
+        resultHTML += `  - ${port}: ${reason}\n`;
       }
+
+      resultHTML += `\n🟠 Medium Risk:\n`;
+      for (const [port, reason] of Object.entries(data.classification?.medium || {})) {
+        resultHTML += `  - ${port}: ${reason}\n`;
+      }
+
+      resultHTML += `\n🟢 Low Risk:\n`;
+      for (const [port, reason] of Object.entries(data.classification?.low || {})) {
+        resultHTML += `  - ${port}: ${reason}\n`;
+      }
+
+      if (data.suspicious) {
+        resultHTML += `\n🚨 Suspicious activity detected!`;
+      }
+
+      document.getElementById('results').innerText = resultHTML;
+    }
+
+    async function exportJSON() {
+      if (!currentData) return alert("Analyze something first!");
+      const res = await fetch('/export/json', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(currentData)
+      });
+      const blob = await res.blob();
+      download(blob, 'cyscan_report.json');
+    }
+
+    async function exportPDF() {
+      if (!currentData) return alert("Analyze something first!");
+      const res = await fetch('/export/pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(currentData)
+      });
+      const blob = await res.blob();
+      download(blob, 'cyscan_report.pdf');
+    }
+
+    function download(blob, filename) {
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = filename;
+      link.click();
     }
   </script>
 </body>
