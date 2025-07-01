@@ -1,221 +1,92 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8">
   <title>CyScan - Port Risk Analyzer</title>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      max-width: 700px;
-      margin: 40px auto;
-      background: #f5f7fa;
-      padding: 20px;
-      color: #333;
-    }
-
-    h2 { text-align: center; }
-    input, textarea, button {
-      width: 100%;
-      padding: 12px;
-      margin: 10px 0;
-      font-size: 16px;
-    }
-
-    button {
-      background: #007BFF;
-      color: white;
-      border: none;
-      cursor: pointer;
-    }
-
-    button:hover {
-      background: #0056b3;
-    }
-
-    pre {
-      background: #eee;
-      padding: 10px;
-      white-space: pre-wrap;
-      margin-top: 10px;
-    }
-
-    .warning {
-      background: #ffe5e5;
-      border-left: 5px solid red;
-      padding: 10px;
-      display: none;
-      margin-top: 10px;
-    }
-
-    .export-btns {
-      display: flex;
-      gap: 10px;
-    }
-
-    .export-btns button {
-      flex: 1;
-    }
+    body { font-family: Arial, sans-serif; max-width: 700px; margin: 40px auto; padding: 20px; }
+    textarea, button, input { width: 100%; padding: 10px; margin: 10px 0; font-size: 16px; }
+    pre { background: #f4f4f4; padding: 10px; white-space: pre-wrap; border-radius: 6px; }
+    h2 { margin-bottom: 5px; }
+    .btn-row { display: flex; gap: 10px; }
+    .btn-row button { flex: 1; }
   </style>
 </head>
 <body>
   <h2>🔐 CyScan - Port Risk Analyzer</h2>
 
-  <label>Enter your IP address:</label>
-  <input type="text" id="ipInput" placeholder="e.g. 192.168.1.10" />
+  <label for="portInput">Enter open ports (comma-separated):</label>
+  <textarea id="portInput" placeholder="e.g. 22, 80, 443, 3306, 3389"></textarea>
+  <button onclick="analyze()">⚙️ Analyze Ports</button>
 
-  <label>Enter open ports (comma-separated):</label>
-  <textarea id="portInput" placeholder="e.g. 22, 80, 443"></textarea>
-  <button onclick="analyze()">Analyze</button>
+  <label for="nmapUpload">Or upload Nmap .txt/.xml file:</label>
+  <input type="file" id="nmapUpload" accept=".txt,.xml" onchange="uploadFile()" />
 
-  <div id="warningBox" class="warning"></div>
-
-  <h3>Result:</h3>
-  <pre id="resultBox">No result yet.</pre>
-  <canvas id="riskChart" style="margin-top: 20px;"></canvas>
-
-  <div class="export-btns">
+  <div class="btn-row">
     <button onclick="exportReport('json')">📤 Export JSON</button>
     <button onclick="exportReport('pdf')">🧾 Export PDF</button>
   </div>
 
-  <hr>
+  <h3>Result:</h3>
+  <pre id="resultBox">No result yet.</pre>
 
-  <h3>Upload Nmap File (.txt or .xml):</h3>
-  <input type="file" id="nmapFile" />
-  <button onclick="uploadFile()">Upload & Analyze</button>
-  <pre id="uploadResultBox">No upload result yet.</pre>
-
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script>
-    const backendURL = 'https://75234246-3ddf-41ed-af63-45c7b3d19a3d-00-1d7tnmydb8zlx.sisko.replit.dev';
     let lastResult = null;
-    let chart = null;
 
     async function analyze() {
-      const ip = document.getElementById('ipInput').value.trim();
       const input = document.getElementById('portInput').value;
-      const ports = input.split(',').map(p => p.trim()).filter(p => p !== "");
+      const ports = input.split(',').map(p => p.trim()).filter(p => p);
+      if (!ports.length) return alert("Please enter at least one port.");
 
-      if (!ip || ports.length === 0) {
-        document.getElementById('resultBox').textContent = "❗ Please enter both IP and port numbers.";
-        return;
-      }
-
-      document.getElementById('resultBox').textContent = "⏳ Analyzing...";
-      document.getElementById('warningBox').style.display = "none";
-
-      try {
-        const res = await fetch(`${backendURL}/analyze`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ports, ip })
-        });
-
-        const data = await res.json();
-        lastResult = data;
-
-        if (data.suspicious) {
-          document.getElementById('warningBox').style.display = "block";
-          document.getElementById('warningBox').textContent = `🚨 Suspicious activity detected from IP: ${data.ip}`;
-        }
-
-        const classification = data.classification;
-        let output = "";
-
-        if (classification.high) output += `🔴 HIGH: ${classification.high.join(", ")}\n\n`;
-        if (classification.medium) output += `🟠 MEDIUM: ${classification.medium.join(", ")}\n\n`;
-        if (classification.low) output += `🟢 LOW: ${classification.low.join(", ")}\n\n`;
-
-        document.getElementById('resultBox').textContent = output;
-
-        if (chart) chart.destroy();
-        const ctx = document.getElementById('riskChart').getContext('2d');
-        chart = new Chart(ctx, {
-          type: 'bar',
-          data: {
-            labels: ['Low', 'Medium', 'High'],
-            datasets: [{
-              label: '# of Ports',
-              data: [
-                classification.low?.length || 0,
-                classification.medium?.length || 0,
-                classification.high?.length || 0
-              ],
-              backgroundColor: ['green', 'orange', 'red']
-            }]
-          },
-          options: {
-            responsive: true,
-            plugins: { legend: { display: false } }
-          }
-        });
-
-      } catch (err) {
-        document.getElementById('resultBox').textContent = "❌ Request failed: " + err.message;
-      }
+      const res = await fetch('https://75234246-3ddf-41ed-af63-45c7b3d19a3d-00-1d7tnmydb8zlx.sisko.replit.dev/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ports })
+      });
+      const data = await res.json();
+      document.getElementById('resultBox').textContent = data.result || "❌ Error\n" + JSON.stringify(data);
+      lastResult = data;
     }
 
     async function uploadFile() {
-      const fileInput = document.getElementById('nmapFile');
-      const file = fileInput.files[0];
-      if (!file) return alert("Please select a file.");
-
+      const fileInput = document.getElementById("nmapUpload");
+      if (!fileInput.files[0]) return alert("Please select a file.");
       const formData = new FormData();
-      formData.append('file', file);
+      formData.append("file", fileInput.files[0]);
 
-      document.getElementById('uploadResultBox').textContent = "⏳ Uploading & analyzing...";
-
-      try {
-        const res = await fetch(`${backendURL}/upload`, {
-          method: 'POST',
-          body: formData
-        });
-
-        const data = await res.json();
-        if (data.classification) {
-          let output = `✅ Ports Found: ${data.ports.join(", ")}\n\n`;
-          if (data.classification.high) output += `🔴 HIGH: ${data.classification.high.join(", ")}\n\n`;
-          if (data.classification.medium) output += `🟠 MEDIUM: ${data.classification.medium.join(", ")}\n\n`;
-          if (data.classification.low) output += `🟢 LOW: ${data.classification.low.join(", ")}\n\n`;
-          document.getElementById('uploadResultBox').textContent = output;
-        } else {
-          document.getElementById('uploadResultBox').textContent = "❌ Error: " + JSON.stringify(data);
-        }
-
-      } catch (err) {
-        document.getElementById('uploadResultBox').textContent = "❌ Upload failed: " + err.message;
-      }
+      const res = await fetch('https://75234246-3ddf-41ed-af63-45c7b3d19a3d-00-1d7tnmydb8zlx.sisko.replit.dev/upload', {
+        method: 'POST',
+        body: formData
+      });
+      const data = await res.json();
+      document.getElementById('resultBox').textContent = data.result || "❌ Error\n" + JSON.stringify(data);
+      lastResult = data;
     }
 
     async function exportReport(type) {
-      if (!lastResult || !lastResult.classification) {
-        alert("⚠ Please run an analysis first.");
+      if (!lastResult) return alert("Analyze or upload first before exporting.");
+
+      const endpoint = type === "json" ? "export/json" : "export/pdf";
+
+      const res = await fetch(`https://75234246-3ddf-41ed-af63-45c7b3d19a3d-00-1d7tnmydb8zlx.sisko.replit.dev/${endpoint}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(lastResult)
+      });
+
+      if (!res.ok) {
+        const err = await res.text();
+        alert("❌ Export failed:\n" + err);
         return;
       }
 
-      const endpoint = type === 'pdf' ? '/export/pdf' : '/export/json';
-
-      try {
-        const res = await fetch(`${backendURL}${endpoint}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            ip: lastResult.ip || "unknown",
-            classification: lastResult.classification
-          })
-        });
-
-        const blob = await res.blob();
-        const url = window.URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = type === 'pdf' ? "cyscan_report.pdf" : "cyscan_report.json";
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-      } catch (err) {
-        alert("❌ Failed to export: " + err.message);
-      }
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = type === "json" ? "cyscan_report.json" : "cyscan_report.pdf";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
     }
   </script>
 </body>
