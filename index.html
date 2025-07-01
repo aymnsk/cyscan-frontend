@@ -3,7 +3,7 @@
 <head>
   <title>CyScan - Port Risk Analyzer</title>
   <style>
-    body { font-family: Arial, sans-serif; max-width: 700px; margin: 40px auto; padding: 20px; }
+    body { font-family: Arial, sans-serif; max-width: 720px; margin: 40px auto; padding: 20px; }
     textarea, button, input { width: 100%; padding: 10px; margin: 10px 0; font-size: 16px; }
     pre { background: #f4f4f4; padding: 10px; white-space: pre-wrap; border-radius: 6px; }
     h2 { margin-bottom: 5px; }
@@ -29,21 +29,27 @@
   <h3>Result:</h3>
   <pre id="resultBox">No result yet.</pre>
 
+  <h4>Meta Info:</h4>
+  <pre id="metaBox">No data yet.</pre>
+
   <script>
     let lastResult = null;
+    const BASE_URL = 'https://75234246-3ddf-41ed-af63-45c7b3d19a3d-00-1d7tnmydb8zlx.sisko.replit.dev';
 
     async function analyze() {
       const input = document.getElementById('portInput').value;
       const ports = input.split(',').map(p => p.trim()).filter(p => p);
       if (!ports.length) return alert("Please enter at least one port.");
 
-      const res = await fetch('https://75234246-3ddf-41ed-af63-45c7b3d19a3d-00-1d7tnmydb8zlx.sisko.replit.dev/analyze', {
+      const res = await fetch(`${BASE_URL}/analyze`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ports })
       });
+
       const data = await res.json();
       document.getElementById('resultBox').textContent = data.result || "❌ Error\n" + JSON.stringify(data);
+      document.getElementById('metaBox').textContent = `IP: ${data.ip || 'Unknown'}\nTimestamp: ${data.timestamp || 'N/A'}`;
       lastResult = data;
     }
 
@@ -53,21 +59,22 @@
       const formData = new FormData();
       formData.append("file", fileInput.files[0]);
 
-      const res = await fetch('https://75234246-3ddf-41ed-af63-45c7b3d19a3d-00-1d7tnmydb8zlx.sisko.replit.dev/upload', {
+      const res = await fetch(`${BASE_URL}/upload`, {
         method: 'POST',
         body: formData
       });
+
       const data = await res.json();
       document.getElementById('resultBox').textContent = data.result || "❌ Error\n" + JSON.stringify(data);
+      document.getElementById('metaBox').textContent = `IP: ${data.ip || 'Unknown'}\nTimestamp: ${data.timestamp || 'N/A'}`;
       lastResult = data;
     }
 
     async function exportReport(type) {
       if (!lastResult) return alert("Analyze or upload first before exporting.");
-
       const endpoint = type === "json" ? "export/json" : "export/pdf";
 
-      const res = await fetch(`https://75234246-3ddf-41ed-af63-45c7b3d19a3d-00-1d7tnmydb8zlx.sisko.replit.dev/${endpoint}`, {
+      const res = await fetch(`${BASE_URL}/${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(lastResult)
