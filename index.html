@@ -17,7 +17,7 @@
       text-align: center;
     }
 
-    textarea, button {
+    input, textarea, button {
       width: 100%;
       padding: 12px;
       margin-top: 10px;
@@ -42,14 +42,27 @@
       white-space: pre-wrap;
       margin-top: 15px;
     }
+
+    .warning {
+      background: #ffe5e5;
+      color: #b30000;
+      padding: 10px;
+      margin-top: 10px;
+      border-left: 4px solid #ff1a1a;
+    }
   </style>
 </head>
 <body>
   <h2>🔐 CyScan - Port Risk Analyzer</h2>
 
+  <p>Enter your IP address:</p>
+  <input type="text" id="ipInput" placeholder="e.g. 192.168.1.10" />
+
   <p>Enter open ports (comma-separated):</p>
   <textarea id="portInput" placeholder="e.g. 22, 80, 443"></textarea>
   <button onclick="analyze()">Analyze</button>
+
+  <div id="warningBox" class="warning" style="display:none;"></div>
 
   <h3>Result:</h3>
   <pre id="resultBox">No result yet.</pre>
@@ -61,33 +74,41 @@
     let chart = null;
 
     async function analyze() {
+      const ip = document.getElementById('ipInput').value.trim();
       const input = document.getElementById('portInput').value;
       const ports = input.split(',').map(p => p.trim()).filter(p => p !== "");
 
-      if (ports.length === 0) {
-        document.getElementById('resultBox').textContent = "Please enter at least one port number.";
+      if (!ip || ports.length === 0) {
+        document.getElementById('resultBox').textContent = "Please enter both IP and port numbers.";
         return;
       }
 
       document.getElementById('resultBox').textContent = "Analyzing...";
+      document.getElementById('warningBox').style.display = "none";
 
       try {
         const res = await fetch('https://75234246-3ddf-41ed-af63-45c7b3d19a3d-00-1d7tnmydb8zlx.sisko.replit.dev/analyze', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ports })
+          body: JSON.stringify({ ports, ip })
         });
 
         const data = await res.json();
 
-        if (data.high || data.medium || data.low) {
+        if (data.suspicious) {
+          document.getElementById('warningBox').style.display = "block";
+          document.getElementById('warningBox').textContent = `🚨 Suspicious activity detected from IP: ${data.ip}`;
+        }
+
+        const classification = data.classification;
+        if (classification.high || classification.medium || classification.low) {
           let output = "";
-          if (data.high) output += `🔴 HIGH: ${data.high.join(", ")}\n\n`;
-          if (data.medium) output += `🟠 MEDIUM: ${data.medium.join(", ")}\n\n`;
-          if (data.low) output += `🟢 LOW: ${data.low.join(", ")}\n\n`;
+          if (classification.high) output += `🔴 HIGH: ${classification.high.join(", ")}\n\n`;
+          if (classification.medium) output += `🟠 MEDIUM: ${classification.medium.join(", ")}\n\n`;
+          if (classification.low) output += `🟢 LOW: ${classification.low.join(", ")}\n\n`;
           document.getElementById('resultBox').textContent = output;
 
-          // Show chart
+          // Update Chart
           const ctx = document.getElementById('riskChart').getContext('2d');
           if (chart) chart.destroy();
           chart = new Chart(ctx, {
@@ -97,9 +118,9 @@
               datasets: [{
                 label: '# of Ports',
                 data: [
-                  data.low?.length || 0,
-                  data.medium?.length || 0,
-                  data.high?.length || 0
+                  classification.low?.length || 0,
+                  classification.medium?.length || 0,
+                  classification.high?.length || 0
                 ],
                 backgroundColor: ['green', 'orange', 'red']
               }]
