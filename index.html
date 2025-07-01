@@ -3,9 +3,9 @@
 
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>CyScan - Port Risk Analyzer</title>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CyScan - Cybersecurity Port Scanner</title>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet" />
   <style>
     body {
       font-family: 'JetBrains Mono', monospace;
@@ -15,39 +15,36 @@
       padding: 20px;
     }
 
-    .container {
-      max-width: 800px;
-      margin: 0 auto;
-      padding: 20px;
-      background-color: #161b22;
-      border-radius: 10px;
-      box-shadow: 0 0 15px rgba(88, 166, 255, 0.1);
-    }
-
     h1 {
       color: #58a6ff;
+      font-size: 2.5em;
       text-align: center;
       margin-bottom: 10px;
     }
 
-    label {
-      display: block;
-      margin-top: 20px;
-      margin-bottom: 5px;
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background-color: #161b22;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 0 15px rgba(88, 166, 255, 0.2);
     }
 
     input, button {
       width: 100%;
       padding: 10px;
-      margin-bottom: 15px;
-      border-radius: 5px;
-      border: 1px solid #30363d;
+      margin-top: 10px;
+      margin-bottom: 20px;
       background-color: #0d1117;
+      border: 1px solid #30363d;
       color: #c9d1d9;
+      border-radius: 5px;
     }
 
     button {
       background-color: #238636;
+      border: none;
       cursor: pointer;
     }
 
@@ -55,61 +52,58 @@
       background-color: #2ea043;
     }
 
-    .results {
-      margin-top: 20px;
-      background-color: #0d1117;
-      padding: 15px;
-      border-left: 5px solid #58a6ff;
-      border-radius: 5px;
+    .result-box {
       white-space: pre-wrap;
+      background-color: #0f172a;
+      border-left: 5px solid #58a6ff;
+      padding: 15px;
+      border-radius: 5px;
+      margin-top: 10px;
     }
 
-    .export-buttons {
-      display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
-    }
-
-    .export-buttons button {
-      flex: 1;
+    label {
+      font-weight: bold;
+      margin-top: 20px;
+      display: block;
     }
   </style>
 </head>
 
 <body>
+  <h1>🔐 CyScan</h1>
   <div class="container">
-    <h1>🔐 CyScan - Port Risk Analyzer</h1>
-
-    <label for="ports">Enter Ports (comma-separated):</label>
+    <label for="ports">Enter Ports (comma-separated)</label>
     <input type="text" id="ports" placeholder="22,80,443,3306,3389" />
+    <button onclick="analyzePorts()">Analyze</button>
 
-    <button onclick="analyzePorts()">🚀 Analyze</button>
+    <div id="results" class="result-box">Results will appear here...</div>
 
-    <div id="results" class="results"></div>
-
-    <div class="export-buttons">
-      <button onclick="exportJSON()">📄 Export JSON</button>
-      <button onclick="exportPDF()">🧾 Export PDF</button>
-    </div>
+    <button onclick="exportJSON()">📄 Export JSON</button>
+    <button onclick="exportPDF()">🧾 Export PDF</button>
   </div>
 
   <script>
+    const BASE_URL = "https://75234246-3ddf-41ed-af63-45c7b3d19a3d-00-1d7tnmydb8zlx.sisko.replit.dev";
     let currentData = null;
 
     async function analyzePorts() {
       const portInput = document.getElementById("ports").value;
-      const ports = portInput.split(',').map(p => p.trim()).filter(Boolean);
+      const ports = portInput.split(",").map(p => p.trim()).filter(Boolean);
+      if (ports.length === 0) {
+        alert("Please enter some ports.");
+        return;
+      }
 
-      const res = await fetch('/analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const res = await fetch(`${BASE_URL}/analyze`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ports })
       });
 
       const data = await res.json();
       currentData = data;
 
-      let resultHTML = `IP: ${data.ip}\nLocation: ${data.location || 'Unknown'}\nTimestamp: ${new Date(data.timestamp).toLocaleString()}\n\n`;
+      let resultHTML = `🧠 IP: ${data.ip}\n🌍 Location: ${data.location || 'Unknown'}\n🕒 Timestamp: ${new Date(data.timestamp).toLocaleString()}\n\n`;
 
       resultHTML += `🔴 High Risk:\n`;
       for (const [port, reason] of Object.entries(data.classification?.high || {})) {
@@ -130,37 +124,40 @@
         resultHTML += `\n🚨 Suspicious activity detected!`;
       }
 
-      document.getElementById('results').innerText = resultHTML;
+      document.getElementById("results").innerText = resultHTML;
     }
 
     async function exportJSON() {
       if (!currentData) return alert("Analyze something first!");
-      const res = await fetch('/export/json', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const res = await fetch(`${BASE_URL}/export/json`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(currentData)
       });
       const blob = await res.blob();
-      download(blob, 'cyscan_report.json');
+      download(blob, "cyscan_report.json");
     }
 
     async function exportPDF() {
       if (!currentData) return alert("Analyze something first!");
-      const res = await fetch('/export/pdf', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const res = await fetch(`${BASE_URL}/export/pdf`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(currentData)
       });
       const blob = await res.blob();
-      download(blob, 'cyscan_report.pdf');
+      download(blob, "cyscan_report.pdf");
     }
 
     function download(blob, filename) {
-      const link = document.createElement('a');
-      link.href = URL.createObjectURL(blob);
-      link.download = filename;
-      link.click();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
     }
   </script>
 </body>
+
 </html>
