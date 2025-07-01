@@ -60,11 +60,12 @@
   <canvas id="chart" width="400" height="400"></canvas>
 
   <script>
+    const backend = "https://75234246-3ddf-41ed-af63-45c7b3d19a3d-00-1d7tnmydb8zlx.sisko.replit.dev";
     let lastResult = null;
 
     async function analyzePorts() {
       const ports = document.getElementById('ports').value.split(',').map(p => p.trim());
-      const res = await fetch('/analyze', {
+      const res = await fetch(`${backend}/analyze`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ports })
@@ -80,7 +81,7 @@
       const formData = new FormData();
       formData.append('file', fileInput.files[0]);
 
-      const res = await fetch('/upload', {
+      const res = await fetch(`${backend}/upload`, {
         method: 'POST',
         body: formData
       });
@@ -92,7 +93,7 @@
 
     async function downloadJSON() {
       if (!lastResult) return alert("Run analysis first.");
-      const res = await fetch('/export/json', {
+      const res = await fetch(`${backend}/export/json`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(lastResult)
@@ -109,7 +110,7 @@
 
     async function downloadPDF() {
       if (!lastResult) return alert("Run analysis first.");
-      const res = await fetch('/export/pdf', {
+      const res = await fetch(`${backend}/export/pdf`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(lastResult)
