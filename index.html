@@ -1,11 +1,12 @@
+<!-- Save this as index.html if you're using GitHub Pages or local frontend -->
 <!DOCTYPE html>
 <html lang="en">
 
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>CyScan - Cybersecurity Port Scanner</title>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet" />
   <style>
     body {
       font-family: 'JetBrains Mono', monospace;
@@ -86,13 +87,15 @@
   </div>
 
   <script>
+    const BASE = "https://75234246-3ddf-41ed-af63-45c7b3d19a3d-00-1d7tnmydb8zlx.sisko.replit.dev";
+
     let currentData = null;
 
     async function analyzePorts() {
       const portInput = document.getElementById('ports').value;
       const ports = portInput.split(',').map(p => p.trim()).filter(Boolean);
 
-      const res = await fetch('/analyze', {
+      const res = await fetch(BASE + '/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ports })
@@ -108,7 +111,7 @@
       const formData = new FormData();
       formData.append('file', fileInput.files[0]);
 
-      const res = await fetch('/upload', {
+      const res = await fetch(BASE + '/upload', {
         method: 'POST',
         body: formData
       });
@@ -120,7 +123,7 @@
 
     async function exportJSON() {
       if (!currentData) return alert("Run an analysis first!");
-      const res = await fetch('/export/json', {
+      const res = await fetch(BASE + '/export/json', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(currentData)
@@ -131,7 +134,7 @@
 
     async function exportPDF() {
       if (!currentData) return alert("Run an analysis first!");
-      const res = await fetch('/export/pdf', {
+      const res = await fetch(BASE + '/export/pdf', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(currentData)
