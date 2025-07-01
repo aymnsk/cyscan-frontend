@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>CyScan Port Analyzer</title>
+  <style>
+    body { font-family: Arial; max-width: 600px; margin: 50px auto; }
+    textarea, button { width: 100%; padding: 10px; margin-top: 10px; }
+    pre { background: #f2f2f2; padding: 10px; white-space: pre-wrap; }
+  </style>
+</head>
+<body>
+  <h2>🔐 CyScan - Port Risk Analyzer</h2>
+  <p>Enter open ports (comma-separated):</p>
+  <textarea id="portInput" placeholder="e.g. 22, 80, 443"></textarea>
+  <button onclick="analyze()">Analyze</button>
+
+  <h3>Result:</h3>
+  <pre id="resultBox">No result yet.</pre>
+
+  <script>
+    async function analyze() {
+      const input = document.getElementById('portInput').value;
+      const ports = input.split(',').map(p => p.trim());
+
+      const res = await fetch('https://fc3b2553-15f7-40aa-b330-53171d3282d5-00-3han7cewbb9ru.pike.replit.dev/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ports })
+      });
+
+      const data = await res.json();
+      document.getElementById('resultBox').textContent = data.result || "Error: " + JSON.stringify(data);
+    }
+  </script>
+</body>
+</html>
